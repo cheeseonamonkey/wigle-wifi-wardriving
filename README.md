@@ -78,3 +78,9 @@ Sounds for proximity detection by Balcoran:
  - Blip: https://freesound.org/people/Balcoran/sounds/478187/
 
 This project is maintained by the WiGLE.net team
+
+## Automated debug builds
+
+Debug APKs are attached to [GitHub Releases](https://github.com/wiglenet/wigle-wifi-wardriving/releases). Default-branch builds are prereleases; version-tag builds are regular releases. Each build uses a temporary CI debug signing key, so installing a newer build may require uninstalling the previous one.
+
+CI APKs use a build-only Maps key; Google Maps features may be unavailable unless the project configures a valid key.
