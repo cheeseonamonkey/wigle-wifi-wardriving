@@ -54,6 +54,7 @@ jobs:
       - name: Publish APK to GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           mapfile -t apks < <(find release -type f -name '*.apk' -print | sort)
