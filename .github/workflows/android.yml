@@ -33,6 +33,44 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew build
+      - name: Sign release APK
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${RELEASE_KEYSTORE_B64:-}" ]]; then
+            : "${RELEASE_STORE_PASSWORD:?Missing ANDROID_RELEASE_KEYSTORE_PASSWORD}"
+            : "${RELEASE_KEY_ALIAS:?Missing ANDROID_RELEASE_KEY_ALIAS}"
+            : "${RELEASE_KEY_PASSWORD:?Missing ANDROID_RELEASE_KEY_PASSWORD}"
+            keystore="${RUNNER_TEMP}/release.keystore"
+            printf '%s' "$RELEASE_KEYSTORE_B64" | base64 --decode > "$keystore"
+            ks_pass="$RELEASE_STORE_PASSWORD"; key_alias="$RELEASE_KEY_ALIAS"; key_pass="$RELEASE_KEY_PASSWORD"
+          else
+            keystore="$HOME/.android/debug.keystore"
+            mkdir -p "$(dirname "$keystore")"
+            if [[ ! -f "$keystore" ]]; then
+              keytool -genkeypair -keystore "$keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" >/dev/null
+            fi
+            ks_pass=android; key_alias=androiddebugkey; key_pass=android
+          fi
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)"
+          mapfile -t apks < <(find wiglewifiwardriving/build/outputs/apk/release -name '*.apk' -type f | sort)
+          test "${#apks[@]}" -gt 0
+          for apk in "${apks[@]}"; do
+            "$build_tools/apksigner" sign --ks "$keystore" --ks-pass "pass:$ks_pass" --ks-key-alias "$key_alias" --key-pass "pass:$key_pass" "$apk"
+            "$build_tools/apksigner" verify "$apk"
+          done
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: wiglewifiwardriving/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -50,8 +88,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: debug-apk
+          pattern: '*-apk'
           path: release
+          merge-multiple: true
       - name: Publish APK to GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
