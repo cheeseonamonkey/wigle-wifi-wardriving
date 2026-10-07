@@ -62,6 +62,8 @@ jobs:
           for apk in "${apks[@]}"; do
             "$build_tools/apksigner" sign --ks "$keystore" --ks-pass "pass:$ks_pass" --ks-key-alias "$key_alias" --key-pass "pass:$key_pass" "$apk"
             "$build_tools/apksigner" verify "$apk"
+            signed_apk="${apk/-unsigned/}"
+            if [[ "$signed_apk" != "$apk" ]]; then mv "$apk" "$signed_apk"; fi
           done
       - name: Upload release APK
         uses: actions/upload-artifact@v4
@@ -109,5 +111,5 @@ jobs:
           else
             short_sha="${GITHUB_SHA:0:12}"
             tag="ci-${short_sha}"
-            gh release create "$tag" "${apks[@]}" --target "$GITHUB_SHA" --prerelease --title "CI build ${short_sha}" --notes "Automated debug APK for commit ${GITHUB_SHA}."
+            gh release create "$tag" "${apks[@]}" --target "$GITHUB_SHA" --prerelease --title "CI build ${short_sha}" --notes "Automated Android APKs for commit ${GITHUB_SHA}."
           fi
